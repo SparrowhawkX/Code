@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Log Email — CareerOS{% endblock %}
+{% block breadcrumb %}<span class="text-muted">Log Email</span>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Log Email / Message</h1>
+  <p class="text-muted">Paste an email or message. CareerOS will parse it, identify the contact, and update the thread automatically.</p>
+</div>
+
+<div class="row g-4">
+<div class="col-lg-7">
+
+  <!-- Paste form -->
+  <form method="post" id="parse-form">
+    <input type="hidden" name="confirm_save" value="0">
+    <div class="card mb-4">
+      <div class="card-header"><strong>Paste Email / Message</strong></div>
+      <div class="card-body">
+        <textarea name="email_text" id="email_text" class="form-control font-monospace"
+                  rows="14" placeholder="Paste full email text here — headers, body, everything.
+
+CareerOS will try to:
+• Identify which contact it relates to
+• Detect if it was sent or received
+• Extract the date
+• Pull out key commitments and signals
+• Suggest a status update
+
+You can review and edit everything before saving.">{{ raw or '' }}</textarea>
+      </div>
+      <div class="card-footer">
+        <button type="submit" class="btn btn-primary" formaction="{{ url_for('email_ingest') }}">
+          <i class="bi bi-search"></i> Parse Email
+        </button>
+        {% if raw %}
+        <button type="button" class="btn btn-outline-secondary ms-2"
+                onclick="document.getElementById('email_text').value=''; this.form.submit()">
+          Clear
+        </button>
+        {% endif %}
+      </div>
+    </div>
+  </form>
+
+  <!-- Parse results -->
+  {% if result %}
+  <form method="post" action="{{ url_for('email_ingest') }}">
+    <input type="hidden" name="confirm_save" value="1">
+    <input type="hidden" name="email_text" value="{{ raw }}">
+
+    <div class="card mb-4 border-primary">
+      <div class="card-header bg-primary bg-opacity-10">
+        <strong><i class="bi bi-magic"></i> Parse Results — Review & Save</strong>
+      </div>
+      <div class="card-body">
+
+        <!-- Contact match -->
+        <div class="mb-3">
+          <label class="form-label fw-bold">Contact</label>
+          {% if result.contact and result.confidence == 'high' %}
+            <div class="alert alert-success py-2 mb-2">
+              <i class="bi bi-check-circle"></i>
+              Matched: <strong>{{ result.contact.name }}</strong>
+              ({{ result.contact.organization or '' }})
+              — <span class="badge bg-success">high confidence</span>
+            </div>
+            <input type="hidden" name="contact_id" value="{{ result.contact.id }}">
+          {% elif result.contact and result.confidence == 'medium' %}
+            <div class="alert alert-warning py-2 mb-2">
+              <i class="bi bi-question-circle"></i>
+              Possible match: <strong>{{ result.contact.name }}</strong>
+              — <span class="badge bg-warning text-dark">medium confidence</span>
+            </div>
+            <select name="contact_id" class="form-select mb-2">
+              <option value="">— Create new contact —</option>
+              {% for c in all_contacts %}
+              <option value="{{ c.id }}"
+                      {% if result.contact and c.id == result.contact.id %}selected{% endif %}>
+                {{ c.name }} ({{ c.organization or '' }})
+              </option>
+              {% endfor %}
+            </select>
+          {% else %}
+            <div class="alert alert-secondary py-2 mb-2">
+              <i class="bi bi-person-question"></i> No contact matched.
+            </div>
+            <select name="contact_id" class="form-select mb-2" id="contact-select">
+              <option value="">— Select existing or create new —</option>
+              {% for c in all_contacts %}
+              <option value="{{ c.id }}">{{ c.name }} ({{ c.organization or '' }})</option>
+              {% endfor %}
+            </select>
+            <div class="row g-2" id="new-contact-fields">
+              <div class="col-md-6">
+                <input type="text" name="new_contact_name" class="form-control form-control-sm"
+                       placeholder="New contact name">
+              </div>
+              <div class="col-md-6">
+                <input type="text" name="new_contact_org" class="form-control form-control-sm"
+                       placeholder="Organization">
+              </div>
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Direction and date -->
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Direction</label>
+            <select name="direction" class="form-select">
+              <option value="sent"     {% if result.direction == 'sent'     %}selected{% endif %}>📤 Sent</option>
+              <option value="received" {% if result.direction == 'received' %}selected{% endif %}>📥 Received</option>
+              <option value="call"     {% if result.direction == 'call'     %}selected{% endif %}>📞 Call</option>
+              <option value="note"     {% if result.direction == 'note'     %}selected{% endif %}>📝 Note</option>
+              <option value="linkedin" {% if result.direction == 'linkedin' %}selected{% endif %}>💼 LinkedIn</option>
+              <option value="whatsapp" {% if result.direction == 'whatsapp' %}selected{% endif %}>💬 WhatsApp</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label fw-bold">Date</label>
+            <input type="date" name="email_date" class="form-control"
+                   value="{{ result.date.isoformat() if result.date else '' }}">
+          </div>
+        </div>
+
+        <!-- Key info -->
+        {% if result.key_info %}
+        <div class="mb-3">
+          <label class="form-label fw-bold">Key Info Extracted</label>
+          <ul class="list-unstyled mb-0">
+            {% for info in result.key_info %}
+            <li class="small text-muted mb-1"><i class="bi bi-arrow-right-short"></i> {{ info }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        <!-- Thread content -->
+        <div class="mb-3">
+          <label class="form-label fw-bold">Thread Entry (edit before saving)</label>
+          <textarea name="final_content" class="form-control" rows="4">{{ result.summary }}</textarea>
+        </div>
+
+        <!-- Status update -->
+        {% if result.suggested_status %}
+        <div class="mb-3">
+          <label class="form-label fw-bold">Status Update</label>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="apply_status" value="1" checked>
+            <label class="form-check-label">
+              Change status to <strong>{{ result.suggested_status }}</strong>
+              {% if result.status_reason %}
+                <span class="text-muted small">({{ result.status_reason }})</span>
+              {% endif %}
+            </label>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Next action -->
+        <div class="row g-2">
+          <div class="col-md-7">
+            <label class="form-label fw-bold">Next Action</label>
+            <input type="text" name="next_action" class="form-control"
+                   placeholder="What's the next step?">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label fw-bold">Due Date</label>
+            <input type="date" name="next_action_date" class="form-control">
+          </div>
+        </div>
+
+      </div>
+      <div class="card-footer d-flex gap-2">
+        <button type="submit" class="btn btn-success">
+          <i class="bi bi-check-lg"></i> Save to Contact Thread
+        </button>
+        <a href="{{ url_for('email_ingest') }}" class="btn btn-outline-secondary">Start Over</a>
+      </div>
+    </div>
+  </form>
+  {% endif %}
+
+</div>
+
+<!-- Tips panel -->
+<div class="col-lg-5">
+  <div class="card bg-light border-0">
+    <div class="card-body">
+      <h6 class="fw-bold mb-3"><i class="bi bi-lightbulb"></i> How it works</h6>
+      <ul class="small text-muted ps-3">
+        <li class="mb-2">Paste the full email including headers (From, To, Date, Subject) for best results</li>
+        <li class="mb-2">CareerOS matches by email address first, then full name, then first name + org</li>
+        <li class="mb-2">If no match, you can select from the dropdown or create a new contact</li>
+        <li class="mb-2">Review all fields before saving — you can edit the thread entry text</li>
+        <li class="mb-2">Status updates are optional — uncheck the box to keep current status</li>
+      </ul>
+      <h6 class="fw-bold mb-3 mt-4"><i class="bi bi-keyboard"></i> Works for</h6>
+      <ul class="small text-muted ps-3">
+        <li>Gmail / Outlook email text</li>
+        <li>LinkedIn messages</li>
+        <li>WhatsApp conversation snippets</li>
+        <li>Meeting notes</li>
+        <li>Any free-form text describing an interaction</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</div>
+{% endblock %}

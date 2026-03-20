@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Import CSV — CareerOS{% endblock %}
+{% block breadcrumb %}<span class="text-muted">Import CSV</span>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Import CSV Data</h1>
+  <p class="text-muted">Import contacts, applications, or activity history. Existing records are matched and updated, never duplicated.</p>
+</div>
+
+<div class="row g-4">
+<div class="col-lg-7">
+
+  <!-- Auto-import -->
+  <div class="card mb-4 border-primary">
+    <div class="card-header bg-primary bg-opacity-10">
+      <strong><i class="bi bi-magic"></i> Auto-Import (Recommended)</strong>
+    </div>
+    <div class="card-body">
+      <p class="text-muted small mb-3">
+        Automatically imports all three CSV files from the app directory:
+        <code>applications_clean.csv</code>, <code>outreach_clean.csv</code>,
+        <code>weekly_tracker_clean.csv</code>
+      </p>
+      <form method="post">
+        <input type="hidden" name="run_auto_import" value="1">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-arrow-clockwise"></i> Run Auto-Import
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Manual upload -->
+  <div class="card mb-4">
+    <div class="card-header"><strong>Upload Single CSV</strong></div>
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label class="form-label">CSV File</label>
+          <input type="file" name="csv_file" accept=".csv" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">File Type</label>
+          <select name="upload_type" class="form-select">
+            <option value="contacts">Outreach / Contacts</option>
+            <option value="applications">Applications</option>
+            <option value="weekly">Weekly Activity Tracker</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-outline-primary">
+          <i class="bi bi-upload"></i> Upload & Import
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Import results -->
+  {% if results %}
+  <div class="card">
+    <div class="card-header"><strong>Import Results</strong></div>
+    <div class="list-group list-group-flush">
+      {% for fname, count, err in results %}
+      <div class="list-group-item">
+        <div class="d-flex justify-content-between">
+          <code>{{ fname }}</code>
+          {% if err %}
+            <span class="badge bg-warning text-dark">{{ err }}</span>
+          {% else %}
+            <span class="badge bg-success">{{ count }} new records</span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<div class="col-lg-5">
+  <div class="card bg-light border-0">
+    <div class="card-body">
+      <h6 class="fw-bold mb-3">Expected CSV columns</h6>
+
+      <p class="small fw-bold text-muted mb-1">outreach_clean.csv</p>
+      <p class="small text-muted mb-3">
+        <code>name, title, org, email, status, context, last_contact, next_action, next_action_date, type, content</code>
+      </p>
+
+      <p class="small fw-bold text-muted mb-1">applications_clean.csv</p>
+      <p class="small text-muted mb-3">
+        <code>role, organization, req_number, status, applied_date, deadline, location, lane, notes, resume_version</code>
+      </p>
+
+      <p class="small fw-bold text-muted mb-1">weekly_tracker_clean.csv</p>
+      <p class="small text-muted mb-3">
+        <code>name, date, type, activity, status</code>
+      </p>
+
+      <p class="small text-muted">
+        Column names are flexible — CareerOS tries common variations automatically.
+        Missing columns are silently skipped.
+      </p>
+    </div>
+  </div>
+</div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,307 @@
+/* ── CareerOS Design System ─────────────────────────────────────────────── */
+
+:root {
+  --sidebar-bg: #0f1729;
+  --sidebar-width: 240px;
+  --accent: #4f8ef7;
+  --accent-hover: #3a7de8;
+  --surface: #ffffff;
+  --bg: #f0f2f7;
+  --text: #1a2035;
+  --muted: #6c757d;
+  --border: #dee2e6;
+  --status-active: #198754;
+  --status-pending: #ffc107;
+  --status-warm: #0dcaf0;
+  --status-noresponse: #dc3545;
+  --status-hold: #6c757d;
+  --status-cold: #343a40;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+/* ── Layout ────────────────────────────────────────────────────────────── */
+
+#wrapper { min-height: 100vh; }
+
+#sidebar {
+  width: var(--sidebar-width);
+  min-height: 100vh;
+  background: var(--sidebar-bg);
+  color: #cbd5e1;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+#main-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
+
+.sidebar-header {
+  padding: 1.25rem 1rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.brand-icon { font-size: 1.4rem; }
+
+.brand-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.j1-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
+  color: #fca5a5;
+}
+
+.j1-badge strong { color: #f87171; font-size: 1rem; }
+
+.j1-badge small { color: #fca5a5; font-size: 0.7rem; margin-left: 2px; }
+
+.sidebar-nav { padding: 0.5rem 0; flex: 1; }
+
+.sidebar-nav .nav-link {
+  color: #94a3b8;
+  padding: 0.6rem 1rem;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.875rem;
+  transition: all 0.15s;
+}
+
+.sidebar-nav .nav-link:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.06);
+}
+
+.sidebar-nav .nav-link.active {
+  color: #fff;
+  background: rgba(79, 142, 247, 0.2);
+  border-right: 3px solid var(--accent);
+}
+
+.sidebar-nav .nav-link i { font-size: 1rem; width: 1.1rem; text-align: center; }
+
+/* ── Topbar ─────────────────────────────────────────────────────────────── */
+
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* ── Content ────────────────────────────────────────────────────────────── */
+
+.content-area {
+  padding: 1.5rem;
+  flex: 1;
+}
+
+.page-header { margin-bottom: 1.5rem; }
+.page-header h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.25rem; }
+.text-accent { color: var(--accent); }
+
+/* ── Stat Cards ─────────────────────────────────────────────────────────── */
+
+.stat-card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  height: 100%;
+}
+
+.stat-card--urgent {
+  background: linear-gradient(135deg, #fee2e2, #fff);
+  border-color: #fca5a5;
+}
+
+.stat-card--action {
+  background: linear-gradient(135deg, #fef3c7, #fff);
+  border-color: #fcd34d;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 0.25rem;
+}
+
+.stat-sub { font-size: 0.75rem; color: #adb5bd; }
+
+/* ── Status tabs ────────────────────────────────────────────────────────── */
+
+.status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.status-tab {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  text-decoration: none;
+  background: #f1f3f5;
+  color: var(--muted);
+  border: 1px solid transparent;
+  transition: all 0.15s;
+}
+
+.status-tab:hover { background: #e9ecef; color: var(--text); }
+.status-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.status-tab--active { color: #198754; border-color: #198754; }
+.status-tab--warm   { color: #0c7a85; border-color: #0dcaf0; }
+.status-tab--pending { color: #856404; border-color: #ffc107; }
+.status-tab--no-response { color: #842029; border-color: #dc3545; }
+.status-tab--hold { color: #495057; border-color: #adb5bd; }
+.status-tab--cold { color: #343a40; border-color: #6c757d; }
+
+/* ── Contact table ──────────────────────────────────────────────────────── */
+
+.contact-name-link {
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.contact-name-link:hover { color: var(--accent); text-decoration: underline; }
+
+.smaller { font-size: 0.78rem; }
+
+.row-overdue { background-color: #fff5f5; }
+
+/* ── Thread ─────────────────────────────────────────────────────────────── */
+
+.thread-list { padding: 0; }
+
+.thread-entry {
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+.thread-entry:last-child { border-bottom: none; }
+
+.thread-entry--sent { background: #f0f8ff; }
+.thread-entry--received { background: #f6ffed; }
+.thread-entry--call { background: #fffbf0; }
+
+.thread-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.35rem;
+}
+
+.thread-type-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.06);
+}
+
+.thread-date { font-size: 0.75rem; color: var(--muted); }
+
+.thread-content {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+/* ── Resume Builder ─────────────────────────────────────────────────────── */
+
+.resume-bullet-row {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+.resume-bullet-row:last-child { border-bottom: none; }
+
+.bullet-text { font-size: 0.875rem; line-height: 1.5; }
+
+.bullet-library-row {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #f8f9fa;
+  font-size: 0.82rem;
+}
+
+.bullet-library-row:last-child { border-bottom: none; }
+
+/* ── Export ─────────────────────────────────────────────────────────────── */
+
+.export-pre {
+  background: #f8f9fa;
+  border: none;
+  border-radius: 0;
+  padding: 1.5rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 80vh;
+  overflow-y: auto;
+  margin: 0;
+}
+
+/* ── Cards & misc ───────────────────────────────────────────────────────── */
+
+.card { border-radius: 10px; border-color: var(--border); }
+.card-header { font-size: 0.875rem; background: #fafbfc; }
+
+.font-monospace { font-family: 'SFMono-Regular', Consolas, monospace; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  #sidebar { display: none; }
+  .content-area { padding: 1rem; }
+}

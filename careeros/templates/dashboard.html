@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — CareerOS{% endblock %}
+
+{% block breadcrumb %}<span class="text-muted">Dashboard</span>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Good morning <span class="text-accent">👋</span></h1>
+  <p class="lead text-muted">Here's your career search briefing.</p>
+</div>
+
+<!-- Stats row -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-card--urgent">
+      <div class="stat-value">{{ j1_countdown }}</div>
+      <div class="stat-label">Days to J-1 deadline</div>
+      <div class="stat-sub">June 27 2026</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card stat-card--action">
+      <div class="stat-value">{{ due_today|length + overdue|length }}</div>
+      <div class="stat-label">Actions needed</div>
+      <div class="stat-sub">{{ overdue|length }} overdue</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-value">{{ active_contacts }}</div>
+      <div class="stat-label">Active/Warm contacts</div>
+      <div class="stat-sub">in pipeline</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-value">{{ applied_apps }}/{{ total_apps }}</div>
+      <div class="stat-label">Applications</div>
+      <div class="stat-sub">submitted / total</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- Left column: Actions -->
+  <div class="col-md-7">
+
+    <!-- Priority suggestions -->
+    {% if suggestions %}
+    <div class="card mb-4">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-lightning-charge-fill text-warning"></i>
+        <strong>Top Priority Actions</strong>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for s in suggestions %}
+        <div class="list-group-item list-group-item-action d-flex align-items-start gap-3">
+          <span class="badge bg-{{ 'danger' if s.priority == 'high' else 'warning text-dark' }} mt-1">
+            {{ s.priority|upper }}
+          </span>
+          <div class="flex-grow-1">
+            {{ s.text }}
+            {% if s.get('contact_id') %}
+              <a href="{{ url_for('contact_detail', contact_id=s.contact_id) }}"
+                 class="btn btn-sm btn-outline-primary ms-2">Open</a>
+            {% elif s.get('app_id') %}
+              <a href="{{ url_for('edit_application', app_id=s.app_id) }}"
+                 class="btn btn-sm btn-outline-secondary ms-2">Edit</a>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Overdue -->
+    {% if overdue %}
+    <div class="card mb-4 border-danger">
+      <div class="card-header bg-danger bg-opacity-10 d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+        <strong>Overdue Actions</strong>
+        <span class="badge bg-danger ms-auto">{{ overdue|length }}</span>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for c in overdue %}
+        <a href="{{ url_for('contact_detail', contact_id=c.id) }}"
+           class="list-group-item list-group-item-action">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <strong>{{ c.name }}</strong>
+              <span class="text-muted small ms-1">{{ c.organization or '' }}</span>
+            </div>
+            <span class="badge bg-{{ c.status_badge() }}">{{ c.status }}</span>
+          </div>
+          <div class="text-muted small mt-1">{{ c.next_action or '—' }}</div>
+          <div class="text-danger small">Was due {{ c.next_action_date|dateformat }}</div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Due today -->
+    {% if due_today %}
+    <div class="card mb-4">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-calendar-check-fill text-success"></i>
+        <strong>Due Today</strong>
+        <span class="badge bg-success ms-auto">{{ due_today|length }}</span>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for c in due_today %}
+        <a href="{{ url_for('contact_detail', contact_id=c.id) }}"
+           class="list-group-item list-group-item-action">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <strong>{{ c.name }}</strong>
+              <span class="text-muted small ms-1">{{ c.organization or '' }}</span>
+            </div>
+            <span class="badge bg-{{ c.status_badge() }}">{{ c.status }}</span>
+          </div>
+          <div class="text-muted small mt-1">{{ c.next_action or '—' }}</div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Due this week -->
+    {% if due_week %}
+    <div class="card mb-4">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-calendar-week text-primary"></i>
+        <strong>This Week</strong>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for c in due_week %}
+        <a href="{{ url_for('contact_detail', contact_id=c.id) }}"
+           class="list-group-item list-group-item-action">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <strong>{{ c.name }}</strong>
+              <span class="text-muted small ms-1">{{ c.organization or '' }}</span>
+            </div>
+            <span class="badge bg-secondary">{{ c.next_action_date|dateformat('%a %b %d') }}</span>
+          </div>
+          <div class="text-muted small mt-1">{{ c.next_action or '—' }}</div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if not due_today and not overdue and not due_week %}
+    <div class="card">
+      <div class="card-body text-center text-muted py-5">
+        <i class="bi bi-check-circle display-4 text-success"></i>
+        <p class="mt-3">No actions pending — you're on top of it.</p>
+        <a href="{{ url_for('contacts') }}" class="btn btn-primary">View all contacts</a>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Right column: Deadlines & quick links -->
+  <div class="col-md-5">
+
+    <!-- J-1 timeline -->
+    <div class="card mb-4 border-warning">
+      <div class="card-header bg-warning bg-opacity-10">
+        <strong><i class="bi bi-passport"></i> J-1 Visa Timeline</strong>
+      </div>
+      <div class="card-body">
+        <div class="mb-2">
+          <div class="d-flex justify-content-between">
+            <small>Today: {{ today.strftime('%b %d') }}</small>
+            <small>Deadline: Jun 27</small>
+          </div>
+          {% set pct = ((99 - j1_countdown) / 99 * 100)|int %}
+          <div class="progress" style="height: 10px;">
+            <div class="progress-bar bg-{{ 'danger' if j1_countdown < 30 else 'warning' if j1_countdown < 60 else 'success' }}"
+                 style="width: {{ pct }}%"></div>
+          </div>
+        </div>
+        <p class="mb-0 text-muted small">
+          <strong>{{ j1_countdown }} days</strong> remaining. Job offer must be in hand by June 27 2026.
+          Graduating HKS MPA/ID May 2026.
+        </p>
+      </div>
+    </div>
+
+    <!-- Upcoming deadlines -->
+    {% if upcoming_deadlines %}
+    <div class="card mb-4">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-alarm-fill text-danger"></i>
+        <strong>Application Deadlines</strong>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for a in upcoming_deadlines %}
+        <a href="{{ url_for('edit_application', app_id=a.id) }}"
+           class="list-group-item list-group-item-action">
+          <div class="d-flex justify-content-between">
+            <div>
+              <strong>{{ a.role }}</strong>
+              <div class="text-muted small">{{ a.organization or '' }}</div>
+            </div>
+            <span class="badge bg-{{ 'danger' if (a.deadline - today).days <= 3 else 'warning text-dark' }}">
+              {{ a.deadline|days_until }}
+            </span>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Quick actions -->
+    <div class="card mb-4">
+      <div class="card-header"><strong>Quick Actions</strong></div>
+      <div class="card-body d-grid gap-2">
+        <a href="{{ url_for('new_contact') }}" class="btn btn-outline-primary">
+          <i class="bi bi-person-plus"></i> Add Contact
+        </a>
+        <a href="{{ url_for('new_application') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-plus-circle"></i> Add Application
+        </a>
+        <a href="{{ url_for('email_ingest') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-envelope-plus"></i> Log Email
+        </a>
+        <a href="{{ url_for('export_download') }}" class="btn btn-outline-success">
+          <i class="bi bi-download"></i> Download Context Export
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

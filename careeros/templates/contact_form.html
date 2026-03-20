@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if contact else 'New' }} Contact — CareerOS{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('contacts') }}" class="text-muted text-decoration-none">Contacts</a>
+  <span class="text-muted mx-1">/</span>
+  {% if contact %}
+    <a href="{{ url_for('contact_detail', contact_id=contact.id) }}"
+       class="text-muted text-decoration-none">{{ contact.name }}</a>
+    <span class="text-muted mx-1">/</span>
+    <span>Edit</span>
+  {% else %}
+    <span>New Contact</span>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-8">
+
+<div class="page-header">
+  <h1>{{ 'Edit Contact' if contact else 'New Contact' }}</h1>
+</div>
+
+<form method="post">
+  <div class="card mb-4">
+    <div class="card-header"><strong>Basic Info</strong></div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Name <span class="text-danger">*</span></label>
+          <input type="text" name="name" class="form-control" required
+                 value="{{ contact.name if contact else '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Status</label>
+          <select name="status" class="form-select">
+            {% for s in all_statuses %}
+            <option value="{{ s }}"
+              {% if contact and contact.status == s %}selected
+              {% elif not contact and s == 'Pending' %}selected{% endif %}>
+              {{ s }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Title</label>
+          <input type="text" name="title" class="form-control"
+                 value="{{ contact.title if contact else '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Organization</label>
+          <input type="text" name="organization" class="form-control"
+                 value="{{ contact.organization if contact else '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-control"
+                 value="{{ contact.email if contact else '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Phone</label>
+          <input type="text" name="phone" class="form-control"
+                 value="{{ contact.phone if contact else '' }}">
+        </div>
+        <div class="col-12">
+          <label class="form-label">LinkedIn URL</label>
+          <input type="url" name="linkedin" class="form-control"
+                 value="{{ contact.linkedin if contact else '' }}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header"><strong>Relationship & Actions</strong></div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label">Relationship Context</label>
+          <textarea name="relationship_context" class="form-control" rows="3"
+                    placeholder="How do you know them? What's the history?">{{ contact.relationship_context if contact else '' }}</textarea>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Last Contact Date</label>
+          <input type="date" name="last_contact_date" class="form-control"
+                 value="{{ contact.last_contact_date.isoformat() if contact and contact.last_contact_date else '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Next Action Date</label>
+          <input type="date" name="next_action_date" class="form-control"
+                 value="{{ contact.next_action_date.isoformat() if contact and contact.next_action_date else '' }}">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Next Action</label>
+          <input type="text" name="next_action" class="form-control"
+                 placeholder="What needs to happen next?"
+                 value="{{ contact.next_action if contact else '' }}">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" rows="2"
+                    placeholder="Any additional notes">{{ contact.notes if contact else '' }}</textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary">
+      <i class="bi bi-check-lg"></i> {{ 'Save Changes' if contact else 'Add Contact' }}
+    </button>
+    {% if contact %}
+    <a href="{{ url_for('contact_detail', contact_id=contact.id) }}"
+       class="btn btn-outline-secondary">Cancel</a>
+    {% else %}
+    <a href="{{ url_for('contacts') }}" class="btn btn-outline-secondary">Cancel</a>
+    {% endif %}
+  </div>
+</form>
+</div>
+</div>
+{% endblock %}

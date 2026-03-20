@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if app else 'New' }} Application — CareerOS{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('applications') }}" class="text-muted text-decoration-none">Applications</a>
+  <span class="text-muted mx-1">/</span>
+  <span>{{ 'Edit' if app else 'New' }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-8">
+<div class="page-header">
+  <h1>{{ 'Edit Application' if app else 'New Application' }}</h1>
+</div>
+
+<form method="post">
+  <div class="card mb-4">
+    <div class="card-header"><strong>Role Details</strong></div>
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="form-label">Role / Title <span class="text-danger">*</span></label>
+          <input type="text" name="role" class="form-control" required
+                 value="{{ app.role if app else '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Organization</label>
+          <input type="text" name="organization" class="form-control"
+                 value="{{ app.organization if app else '' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Req Number</label>
+          <input type="text" name="req_number" class="form-control"
+                 value="{{ app.req_number if app else '' }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Lane</label>
+          <input type="text" name="lane" class="form-control"
+                 placeholder="Lane A / B / C"
+                 value="{{ app.lane if app else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Status</label>
+          <select name="status" class="form-select">
+            {% for s in all_statuses %}
+            <option value="{{ s }}" {% if app and app.status == s %}selected
+                    {% elif not app and s == 'Drafting' %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Applied Date</label>
+          <input type="date" name="applied_date" class="form-control"
+                 value="{{ app.applied_date.isoformat() if app and app.applied_date else '' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Deadline</label>
+          <input type="date" name="deadline" class="form-control"
+                 value="{{ app.deadline.isoformat() if app and app.deadline else '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Location</label>
+          <input type="text" name="location" class="form-control"
+                 value="{{ app.location if app else '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Salary Range</label>
+          <input type="text" name="salary_range" class="form-control"
+                 placeholder="e.g. $150k–$180k"
+                 value="{{ app.salary_range if app else '' }}">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Resume Version Used</label>
+          <input type="text" name="resume_version" class="form-control"
+                 value="{{ app.resume_version if app else '' }}">
+        </div>
+        <div class="col-12">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-control" rows="3">{{ app.notes if app else '' }}</textarea>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Job Description (paste for resume tailoring)</label>
+          <textarea name="job_description" class="form-control" rows="6"
+                    placeholder="Paste full JD here…">{{ app.job_description if app else '' }}</textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary">
+      <i class="bi bi-check-lg"></i> {{ 'Save Changes' if app else 'Add Application' }}
+    </button>
+    <a href="{{ url_for('applications') }}" class="btn btn-outline-secondary">Cancel</a>
+    {% if app %}
+    <form method="post" action="{{ url_for('delete_application', app_id=app.id) }}"
+          class="ms-auto" onsubmit="return confirm('Delete this application?')">
+      <button class="btn btn-outline-danger">
+        <i class="bi bi-trash"></i> Delete
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</form>
+</div>
+</div>
+{% endblock %}

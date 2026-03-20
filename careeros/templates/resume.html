@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Resume Builder — CareerOS{% endblock %}
+{% block breadcrumb %}<span class="text-muted">Resume Builder</span>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Resume Builder</h1>
+  <p class="text-muted">Paste a job description to get your top matching CV bullets, ranked by relevance.</p>
+</div>
+
+<div class="row g-4">
+
+<!-- Left: JD input & tailored results -->
+<div class="col-lg-6">
+
+  <div class="card mb-4">
+    <div class="card-header"><strong>Tailor to Job Description</strong></div>
+    <div class="card-body">
+      <form method="post" action="{{ url_for('tailor_resume') }}">
+        <textarea name="jd" class="form-control font-monospace mb-3" rows="12"
+                  placeholder="Paste the full job description here…">{{ jd or '' }}</textarea>
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-magic"></i> Find Best Bullets
+        </button>
+      </form>
+    </div>
+  </div>
+
+  {% if tailored %}
+  <div class="card mb-4 border-success">
+    <div class="card-header bg-success bg-opacity-10">
+      <strong>Top Matching Bullets ({{ tailored|length }} found)</strong>
+    </div>
+    <div class="card-body p-0">
+      {% for item in tailored %}
+      <div class="resume-bullet-row">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <span class="badge bg-secondary">{{ item.bullet.employer[:30] }}…</span>
+          <span class="badge bg-success">{{ item.score }} keyword hits</span>
+        </div>
+        <div class="bullet-text">• {{ item.bullet.bullet_text }}</div>
+        {% if item.hits %}
+        <div class="mt-1">
+          {% for h in item.hits[:8] %}
+          <span class="badge bg-light text-dark border me-1">{{ h }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Right: Full bullet library -->
+<div class="col-lg-6">
+
+  <!-- Add bullet -->
+  <div class="card mb-4">
+    <div class="card-header d-flex align-items-center gap-2">
+      <strong>Add CV Bullet</strong>
+      <button class="btn btn-sm btn-outline-primary ms-auto"
+              type="button" data-bs-toggle="collapse" data-bs-target="#addBulletForm">
+        <i class="bi bi-plus"></i>
+      </button>
+    </div>
+    <div class="collapse" id="addBulletForm">
+      <div class="card-body">
+        <form method="post" action="{{ url_for('add_bullet') }}">
+          <div class="row g-2">
+            <div class="col-md-8">
+              <input type="text" name="employer" class="form-control form-control-sm"
+                     placeholder="Employer / Organization" required>
+            </div>
+            <div class="col-md-4">
+              <input type="text" name="period" class="form-control form-control-sm"
+                     placeholder="Period (e.g. 2020–2024)">
+            </div>
+            <div class="col-12">
+              <textarea name="bullet_text" class="form-control form-control-sm" rows="2"
+                        placeholder="Bullet text…" required></textarea>
+            </div>
+            <div class="col-12">
+              <input type="text" name="tags" class="form-control form-control-sm"
+                     placeholder="Tags (comma-separated): hydrogen, policy, World Bank…">
+            </div>
+            <div class="col-12">
+              <button type="submit" class="btn btn-sm btn-primary">Add Bullet</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bullet library grouped by employer -->
+  {% for emp in employers %}
+  {% set emp_bullets = bullets | selectattr('employer', 'equalto', emp) | list %}
+  {% if emp_bullets %}
+  <div class="card mb-3">
+    <div class="card-header py-2">
+      <small class="fw-bold text-muted">{{ emp }}</small>
+      {% if emp_bullets[0].period %}
+      <span class="text-muted small ms-1">· {{ emp_bullets[0].period }}</span>
+      {% endif %}
+    </div>
+    <div class="card-body p-0">
+      {% for b in emp_bullets %}
+      <div class="bullet-library-row d-flex gap-2 align-items-start">
+        <div class="flex-grow-1 small">• {{ b.bullet_text }}</div>
+        <form method="post" action="{{ url_for('delete_bullet', bullet_id=b.id) }}"
+              onsubmit="return confirm('Delete this bullet?')">
+          <button class="btn btn-sm btn-outline-danger py-0 px-1" title="Delete">
+            <i class="bi bi-x"></i>
+          </button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+
+</div>
+</div>
+{% endblock %}
