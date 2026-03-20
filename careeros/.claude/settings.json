@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd /home/user/Code/careeros && pgrep -f 'python app.py' > /dev/null || (.venv/bin/python app.py &> /tmp/careeros.log &) && echo '{\"systemMessage\": \"CareerOS started at http://localhost:5000\"}'",
+            "async": true,
+            "statusMessage": "Starting CareerOS..."
+          }
+        ]
+      }
+    ]
+  }
+}
