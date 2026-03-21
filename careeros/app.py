@@ -602,60 +602,78 @@ def init_db():
 
 
 def _seed_if_empty():
-    if Contact.query.count() > 0:
-        return  # Already seeded
-
-    print("  [seed] Populating initial contacts and applications…")
     from seed_data import SEED_CONTACTS, SEED_APPLICATIONS, CV_BULLETS
 
-    for cd in SEED_CONTACTS:
-        c = Contact(
-            name=cd['name'],
-            title=cd.get('title'),
-            organization=cd.get('organization'),
-            email=cd.get('email') or None,
-            relationship_context=cd.get('relationship_context'),
-            status=cd.get('status', 'Pending'),
-            last_contact_date=cd.get('last_contact_date'),
-            next_action=cd.get('next_action'),
-            next_action_date=cd.get('next_action_date'),
-        )
-        db.session.add(c)
-        db.session.flush()
-        for te in cd.get('thread', []):
-            entry = ConversationEntry(
-                contact_id=c.id,
-                date=te['date'],
-                entry_type=te['entry_type'],
-                content=te['content'],
-            )
-            db.session.add(entry)
+    if Contact.query.count() == 0:
+        print("  [seed] Populating initial contacts and CV bullets…")
 
-    for ad in SEED_APPLICATIONS:
-        a = Application(
+        for cd in SEED_CONTACTS:
+            c = Contact(
+                name=cd['name'],
+                title=cd.get('title'),
+                organization=cd.get('organization'),
+                email=cd.get('email') or None,
+                relationship_context=cd.get('relationship_context'),
+                status=cd.get('status', 'Pending'),
+                last_contact_date=cd.get('last_contact_date'),
+                next_action=cd.get('next_action'),
+                next_action_date=cd.get('next_action_date'),
+            )
+            db.session.add(c)
+            db.session.flush()
+            for te in cd.get('thread', []):
+                entry = ConversationEntry(
+                    contact_id=c.id,
+                    date=te['date'],
+                    entry_type=te['entry_type'],
+                    content=te['content'],
+                )
+                db.session.add(entry)
+
+        for bd in CV_BULLETS:
+            b = CVBullet(
+                employer=bd['employer'],
+                period=bd.get('period'),
+                bullet_text=bd['bullet_text'],
+                tags=bd.get('tags'),
+            )
+            db.session.add(b)
+
+        db.session.commit()
+        print(f"  [seed] Done: {len(SEED_CONTACTS)} contacts, {len(CV_BULLETS)} CV bullets")
+
+    # Always upsert applications so status corrections in seed data take effect
+    _upsert_seed_applications(SEED_APPLICATIONS)
+
+
+def _upsert_seed_applications(seed_apps):
+    inserted = updated = 0
+    for ad in seed_apps:
+        existing = Application.query.filter_by(
             role=ad['role'],
             organization=ad.get('organization'),
-            req_number=ad.get('req_number') or None,
-            status=ad.get('status', 'Drafting'),
-            applied_date=ad.get('applied_date'),
-            deadline=ad.get('deadline'),
-            location=ad.get('location'),
-            notes=ad.get('notes'),
-            lane=ad.get('lane'),
-        )
-        db.session.add(a)
-
-    for bd in CV_BULLETS:
-        b = CVBullet(
-            employer=bd['employer'],
-            period=bd.get('period'),
-            bullet_text=bd['bullet_text'],
-            tags=bd.get('tags'),
-        )
-        db.session.add(b)
-
-    db.session.commit()
-    print(f"  [seed] Done: {len(SEED_CONTACTS)} contacts, {len(SEED_APPLICATIONS)} applications, {len(CV_BULLETS)} CV bullets")
+        ).first()
+        if existing:
+            if existing.status != ad.get('status', 'Drafting'):
+                existing.status = ad.get('status', 'Drafting')
+                updated += 1
+        else:
+            a = Application(
+                role=ad['role'],
+                organization=ad.get('organization'),
+                req_number=ad.get('req_number') or None,
+                status=ad.get('status', 'Drafting'),
+                applied_date=ad.get('applied_date'),
+                deadline=ad.get('deadline'),
+                location=ad.get('location'),
+                notes=ad.get('notes'),
+                lane=ad.get('lane'),
+            )
+            db.session.add(a)
+            inserted += 1
+    if inserted or updated:
+        db.session.commit()
+        print(f"  [seed] Applications: {inserted} inserted, {updated} status-corrected")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

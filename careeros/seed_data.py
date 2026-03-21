@@ -386,6 +386,133 @@ SEED_APPLICATIONS = [
         "notes": "Decide after Pawan call March 23. ECA energy team.",
         "lane": "Lane B",
     },
+    # ── Tech & Consulting pipeline ──────────────────────────────────────────────
+    {
+        "role": "Sr Delivery Consultant",
+        "organization": "AWS",
+        "status": "Rejected",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Strategic Negotiator Data Centers",
+        "organization": "Google",
+        "status": "Drafting",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Consulting Manager Energy Transition",
+        "organization": "S&P Global",
+        "status": "Drafting",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Director Industrial Decarbonization",
+        "organization": "PwC",
+        "status": "Applied",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Consultant Utilities",
+        "organization": "PA Associates",
+        "status": "Applied",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Sr Energy Markets PM",
+        "organization": "Microsoft",
+        "status": "Applied",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Energy Manager Commercial Supply",
+        "organization": "Meta",
+        "status": "Applied",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Energy & Climate Policy Lead",
+        "organization": "CoreWeave",
+        "status": "Applied",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Utility Advisory Consultant",
+        "organization": "PA Consulting",
+        "status": "Applied",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Energy Manager Clean Energy",
+        "organization": "Meta",
+        "status": "Applied",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Technical PM Global Infrastructure",
+        "organization": "Google",
+        "status": "Drafting",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Senior Consultant",
+        "organization": "NERA",
+        "status": "Drafting",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Senior Director Power & Renewables",
+        "organization": "FTI",
+        "status": "Drafting",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Energy Infrastructure Lead EMEA",
+        "organization": "Ada Infrastructure",
+        "status": "Drafting",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Contract PM Global Infrastructure",
+        "organization": "Google",
+        "status": "Drafting",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Renewable Energy Procurement APJC",
+        "organization": "Amazon",
+        "status": "Drafting",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Sr Manager Green Finance",
+        "organization": "Climate Policy Initiative",
+        "status": "Drafting",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Industrial Electrification",
+        "organization": "Agora",
+        "status": "Drafting",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Senior Director",
+        "organization": "MTI",
+        "status": "Drafting",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Head ESaaS",
+        "organization": "Keppel",
+        "status": "Drafting",
+        "lane": "Lane C",
+    },
+    {
+        "role": "Sr Manager Storage",
+        "organization": "ESVolta",
+        "status": "Drafting",
+        "lane": "Lane C",
+    },
 ]
 
 
