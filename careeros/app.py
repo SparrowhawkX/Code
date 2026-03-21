@@ -400,6 +400,24 @@ def delete_application(app_id):
     return redirect(url_for('applications'))
 
 
+@app.route('/applications/dedup', methods=['POST'])
+def dedup_applications():
+    """Remove duplicate applications, keeping the one with the lowest id."""
+    from sqlalchemy import func
+    seen = {}
+    removed = 0
+    for a in Application.query.order_by(Application.id).all():
+        key = (a.role.strip().lower(), (a.organization or '').strip().lower())
+        if key in seen:
+            db.session.delete(a)
+            removed += 1
+        else:
+            seen[key] = a.id
+    db.session.commit()
+    flash(f'Removed {removed} duplicate application(s).', 'success' if removed else 'info')
+    return redirect(url_for('applications'))
+
+
 # ── Email Ingestion ───────────────────────────────────────────────────────────
 
 @app.route('/email', methods=['GET', 'POST'])
@@ -642,22 +660,8 @@ def _seed_if_empty():
         db.session.commit()
         print(f"  [seed] Done: {len(SEED_CONTACTS)} contacts, {len(CV_BULLETS)} CV bullets")
 
-    # Always upsert applications so status corrections in seed data take effect
-    _upsert_seed_applications(SEED_APPLICATIONS)
-
-
-def _upsert_seed_applications(seed_apps):
-    inserted = updated = 0
-    for ad in seed_apps:
-        existing = Application.query.filter_by(
-            role=ad['role'],
-            organization=ad.get('organization'),
-        ).first()
-        if existing:
-            if existing.status != ad.get('status', 'Drafting'):
-                existing.status = ad.get('status', 'Drafting')
-                updated += 1
-        else:
+    if Application.query.count() == 0:
+        for ad in SEED_APPLICATIONS:
             a = Application(
                 role=ad['role'],
                 organization=ad.get('organization'),
@@ -670,10 +674,8 @@ def _upsert_seed_applications(seed_apps):
                 lane=ad.get('lane'),
             )
             db.session.add(a)
-            inserted += 1
-    if inserted or updated:
         db.session.commit()
-        print(f"  [seed] Applications: {inserted} inserted, {updated} status-corrected")
+        print(f"  [seed] {len(SEED_APPLICATIONS)} applications seeded")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
