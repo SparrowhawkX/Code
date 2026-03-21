@@ -92,16 +92,17 @@
       <i class="bi bi-check-lg"></i> {{ 'Save Changes' if app else 'Add Application' }}
     </button>
     <a href="{{ url_for('applications') }}" class="btn btn-outline-secondary">Cancel</a>
-    {% if app %}
-    <form method="post" action="{{ url_for('delete_application', app_id=app.id) }}"
-          class="ms-auto" onsubmit="return confirm('Delete this application?')">
-      <button class="btn btn-outline-danger">
-        <i class="bi bi-trash"></i> Delete
-      </button>
-    </form>
-    {% endif %}
   </div>
 </form>
+
+{% if app %}
+<form method="post" action="{{ url_for('delete_application', app_id=app.id) }}"
+      class="mt-2" onsubmit="return confirm('Delete this application?')">
+  <button class="btn btn-outline-danger">
+    <i class="bi bi-trash"></i> Delete
+  </button>
+</form>
+{% endif %}
 </div>
 </div>
 {% endblock %}
