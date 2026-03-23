@@ -278,11 +278,8 @@ def add_log_entry(contact_id):
         c.status = new_status
     c.last_contact_date = entry.date
     next_action = request.form.get('next_action', '').strip()
-    if next_action:
-        c.next_action = next_action
-    next_action_date = _parse_form_date(request.form.get('next_action_date'))
-    if next_action_date:
-        c.next_action_date = next_action_date
+    c.next_action = next_action or None
+    c.next_action_date = _parse_form_date(request.form.get('next_action_date'))
     c.updated_at = datetime.utcnow()
 
     db.session.commit()
