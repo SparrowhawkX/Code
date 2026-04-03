@@ -103,6 +103,38 @@ class Application(db.Model):
         return f'<Application {self.role} @ {self.organization}>'
 
 
+class Task(db.Model):
+    __tablename__ = 'tasks'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.Text, nullable=False)
+    due_date = db.Column(db.Date)
+    time_estimate = db.Column(db.String(50))   # e.g. "10 min", "3–4 hours"
+    category = db.Column(db.String(50), default='Career')
+    # Career / Personal / Academic
+    status = db.Column(db.String(20), default='Todo')
+    # Todo / Done / Skipped
+    priority = db.Column(db.String(20), default='Medium')
+    # High / Medium / Low
+    linked_contact_id = db.Column(db.Integer, db.ForeignKey('contacts.id'), nullable=True)
+    linked_application_id = db.Column(db.Integer, db.ForeignKey('applications.id'), nullable=True)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    linked_contact = db.relationship('Contact', foreign_keys=[linked_contact_id])
+    linked_application = db.relationship('Application', foreign_keys=[linked_application_id])
+
+    def category_icon(self):
+        return {'Career': '💼', 'Personal': '🏠', 'Academic': '📚'}.get(self.category, '📌')
+
+    def priority_badge(self):
+        return {'High': 'danger', 'Medium': 'warning', 'Low': 'secondary'}.get(self.priority, 'light')
+
+    def __repr__(self):
+        return f'<Task {self.title[:40]}>'
+
+
 class CVBullet(db.Model):
     __tablename__ = 'cv_bullets'
 

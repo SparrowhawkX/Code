@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Task' if task else 'New Task' }} — CareerOS{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('tasks') }}" class="text-muted text-decoration-none">Tasks</a>
+  <span class="text-muted mx-1">/</span>
+  <span class="text-muted">{{ 'Edit' if task else 'New' }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ 'Edit Task' if task else 'New Task' }}</h1>
+</div>
+
+<div class="row">
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-body">
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Title <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-control"
+                   value="{{ task.title if task else '' }}" required autofocus>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label fw-semibold">Category</label>
+              <select name="category" class="form-select">
+                {% for cat in all_categories %}
+                <option value="{{ cat }}"
+                  {{ 'selected' if task and task.category == cat else '' }}
+                  {{ 'selected' if not task and cat == 'Career' else '' }}>
+                  {{ cat }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label fw-semibold">Priority</label>
+              <select name="priority" class="form-select">
+                {% for p in all_priorities %}
+                <option value="{{ p }}"
+                  {{ 'selected' if task and task.priority == p else '' }}
+                  {{ 'selected' if not task and p == 'Medium' else '' }}>
+                  {{ p }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label fw-semibold">Due Date</label>
+              <input type="date" name="due_date" class="form-control"
+                     value="{{ task.due_date.isoformat() if task and task.due_date else '' }}">
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label fw-semibold">Time Estimate</label>
+              <input type="text" name="time_estimate" class="form-control"
+                     placeholder="e.g. 15 min, 1 hr"
+                     value="{{ task.time_estimate if task else '' }}">
+            </div>
+          </div>
+
+          {% if task %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Status</label>
+            <select name="status" class="form-select">
+              {% for s in all_statuses %}
+              <option value="{{ s }}" {{ 'selected' if task.status == s }}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label fw-semibold">Linked Contact</label>
+              <select name="linked_contact_id" class="form-select">
+                <option value="">— none —</option>
+                {% for c in all_contacts %}
+                <option value="{{ c.id }}"
+                  {{ 'selected' if task and task.linked_contact_id == c.id }}>
+                  {{ c.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label fw-semibold">Linked Application</label>
+              <select name="linked_application_id" class="form-select">
+                <option value="">— none —</option>
+                {% for a in all_apps %}
+                <option value="{{ a.id }}"
+                  {{ 'selected' if task and task.linked_application_id == a.id }}>
+                  {{ a.role }}{% if a.organization %} — {{ a.organization }}{% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Notes</label>
+            <textarea name="notes" class="form-control" rows="3">{{ task.notes if task else '' }}</textarea>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              {{ 'Save Changes' if task else 'Add Task' }}
+            </button>
+            <a href="{{ url_for('tasks') }}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if task %}
+<form method="post" action="{{ url_for('delete_task', task_id=task.id) }}"
+      class="mt-3" onsubmit="return confirm('Delete this task?')">
+  <button class="btn btn-outline-danger btn-sm">
+    <i class="bi bi-trash"></i> Delete Task
+  </button>
+</form>
+{% endif %}
+{% endblock %}

@@ -7,7 +7,7 @@ import os
 from datetime import date, datetime
 from flask import (Flask, render_template, request, redirect,
                    url_for, flash, jsonify, Response)
-from models import db, Contact, ConversationEntry, Application, CVBullet
+from models import db, Contact, ConversationEntry, Application, CVBullet, Task
 from context_export import generate_export, days_to_j1, J1_DEADLINE
 from email_parser import parse_email
 
@@ -120,6 +120,18 @@ def dashboard():
         Application.status.notin_(["Applied", "Rejected", "Withdrawn"])
     ).order_by(Application.deadline).all()
 
+    # Tasks due today (not done)
+    tasks_today = Task.query.filter(
+        Task.due_date == today,
+        Task.status == 'Todo'
+    ).order_by(Task.priority.asc(), Task.id.asc()).all()
+
+    # Overdue tasks
+    tasks_overdue = Task.query.filter(
+        Task.due_date < today,
+        Task.status == 'Todo'
+    ).order_by(Task.due_date.asc()).all()
+
     # Priority suggestions
     suggestions = _priority_suggestions(due_today, overdue, upcoming_deadlines)
 
@@ -131,7 +143,9 @@ def dashboard():
                            total_apps=total_apps,
                            applied_apps=applied_apps,
                            upcoming_deadlines=upcoming_deadlines,
-                           suggestions=suggestions)
+                           suggestions=suggestions,
+                           tasks_today=tasks_today,
+                           tasks_overdue=tasks_overdue)
 
 
 def _priority_suggestions(due_today, overdue, upcoming_deadlines):
@@ -603,6 +617,103 @@ def _score_bullets(jd, bullets):
     return scored[:20]
 
 
+# ── Tasks ─────────────────────────────────────────────────────────────────────
+
+ALL_CATEGORIES = ['Career', 'Personal', 'Academic']
+ALL_PRIORITIES = ['High', 'Medium', 'Low']
+ALL_TASK_STATUSES = ['Todo', 'Done', 'Skipped']
+
+
+@app.route('/tasks')
+def tasks():
+    status_filter = request.args.get('status', 'Todo')
+    category_filter = request.args.get('category', '')
+
+    q = Task.query
+    if status_filter:
+        q = q.filter(Task.status == status_filter)
+    if category_filter:
+        q = q.filter(Task.category == category_filter)
+
+    all_tasks = q.order_by(Task.due_date.asc().nullslast(), Task.priority.asc(), Task.id.asc()).all()
+
+    return render_template('tasks.html',
+                           tasks=all_tasks,
+                           status_filter=status_filter,
+                           category_filter=category_filter,
+                           all_categories=ALL_CATEGORIES,
+                           all_priorities=ALL_PRIORITIES,
+                           all_statuses=ALL_TASK_STATUSES,
+                           all_contacts=Contact.query.order_by(Contact.name).all(),
+                           all_apps=Application.query.order_by(Application.role).all())
+
+
+@app.route('/tasks/new', methods=['GET', 'POST'])
+def new_task():
+    if request.method == 'POST':
+        t = Task(
+            title=request.form['title'],
+            due_date=_parse_form_date(request.form.get('due_date')),
+            time_estimate=request.form.get('time_estimate') or None,
+            category=request.form.get('category', 'Career'),
+            priority=request.form.get('priority', 'Medium'),
+            status='Todo',
+            linked_contact_id=int(request.form['linked_contact_id']) if request.form.get('linked_contact_id') else None,
+            linked_application_id=int(request.form['linked_application_id']) if request.form.get('linked_application_id') else None,
+            notes=request.form.get('notes') or None,
+        )
+        db.session.add(t)
+        db.session.commit()
+        flash('Task added.', 'success')
+        return redirect(request.form.get('next') or url_for('tasks'))
+    return render_template('task_form.html', task=None,
+                           all_categories=ALL_CATEGORIES, all_priorities=ALL_PRIORITIES,
+                           all_contacts=Contact.query.order_by(Contact.name).all(),
+                           all_apps=Application.query.order_by(Application.role).all())
+
+
+@app.route('/tasks/<int:task_id>/edit', methods=['GET', 'POST'])
+def edit_task(task_id):
+    t = Task.query.get_or_404(task_id)
+    if request.method == 'POST':
+        t.title = request.form['title']
+        t.due_date = _parse_form_date(request.form.get('due_date'))
+        t.time_estimate = request.form.get('time_estimate') or None
+        t.category = request.form.get('category', t.category)
+        t.priority = request.form.get('priority', t.priority)
+        t.status = request.form.get('status', t.status)
+        t.linked_contact_id = int(request.form['linked_contact_id']) if request.form.get('linked_contact_id') else None
+        t.linked_application_id = int(request.form['linked_application_id']) if request.form.get('linked_application_id') else None
+        t.notes = request.form.get('notes') or None
+        t.updated_at = datetime.utcnow()
+        db.session.commit()
+        flash('Task updated.', 'success')
+        return redirect(url_for('tasks'))
+    return render_template('task_form.html', task=t,
+                           all_categories=ALL_CATEGORIES, all_priorities=ALL_PRIORITIES,
+                           all_statuses=ALL_TASK_STATUSES,
+                           all_contacts=Contact.query.order_by(Contact.name).all(),
+                           all_apps=Application.query.order_by(Application.role).all())
+
+
+@app.route('/tasks/<int:task_id>/done', methods=['POST'])
+def toggle_task_done(task_id):
+    t = Task.query.get_or_404(task_id)
+    t.status = 'Todo' if t.status == 'Done' else 'Done'
+    t.updated_at = datetime.utcnow()
+    db.session.commit()
+    return redirect(request.referrer or url_for('tasks'))
+
+
+@app.route('/tasks/<int:task_id>/delete', methods=['POST'])
+def delete_task(task_id):
+    t = Task.query.get_or_404(task_id)
+    db.session.delete(t)
+    db.session.commit()
+    flash('Task deleted.', 'info')
+    return redirect(request.referrer or url_for('tasks'))
+
+
 # ── DB Init + Seed ────────────────────────────────────────────────────────────
 
 def init_db():
@@ -617,7 +728,7 @@ def init_db():
 
 
 def _seed_if_empty():
-    from seed_data import SEED_CONTACTS, SEED_APPLICATIONS, CV_BULLETS
+    from seed_data import SEED_CONTACTS, SEED_APPLICATIONS, CV_BULLETS, SEED_TASKS
 
     if Contact.query.count() == 0:
         print("  [seed] Populating initial contacts and CV bullets…")
@@ -673,6 +784,27 @@ def _seed_if_empty():
             db.session.add(a)
         db.session.commit()
         print(f"  [seed] {len(SEED_APPLICATIONS)} applications seeded")
+
+    if Task.query.count() == 0:
+        # Build a name→id lookup for contacts already in DB
+        contact_lookup = {c.name: c.id for c in Contact.query.all()}
+        for td in SEED_TASKS:
+            linked_id = None
+            if td.get('linked_contact'):
+                linked_id = contact_lookup.get(td['linked_contact'])
+            t = Task(
+                title=td['title'],
+                due_date=td.get('due_date'),
+                time_estimate=td.get('time_estimate'),
+                category=td.get('category', 'Career'),
+                priority=td.get('priority', 'Medium'),
+                status=td.get('status', 'Todo'),
+                notes=td.get('notes'),
+                linked_contact_id=linked_id,
+            )
+            db.session.add(t)
+        db.session.commit()
+        print(f"  [seed] {len(SEED_TASKS)} tasks seeded")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

@@ -61,6 +61,12 @@
         </a>
       </li>
       <li class="nav-item">
+        <a class="nav-link {% if 'task' in (request.endpoint or '') %}active{% endif %}"
+           href="{{ url_for('tasks') }}">
+          <i class="bi bi-check2-square"></i> Tasks
+        </a>
+      </li>
+      <li class="nav-item">
         <a class="nav-link {% if request.endpoint == 'upload' %}active{% endif %}"
            href="{{ url_for('upload') }}">
           <i class="bi bi-upload"></i> Import CSV
