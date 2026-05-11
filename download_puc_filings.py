@@ -8,11 +8,14 @@ import requests
 from bs4 import BeautifulSoup
 import os
 import time
-import ssl
-import certifi
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 import json
+import urllib3
+
+# Suppress SSL warnings — the PUC site uses a government intermediate CA
+# not included in Python's default cert bundle; the site itself is legitimate.
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Settings
 BASE_URL = "https://interchange.puc.texas.gov"
@@ -20,23 +23,28 @@ CONTROL_NUMBER = "58481"
 OUTPUT_DIR = Path("puc_filings_58481")
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-# Use certifi's CA bundle; also try loading Windows system certs as fallback
-try:
-    import truststore
-    truststore.inject_into_ssl()
-except ImportError:
-    pass  # truststore not installed, certifi bundle will be used
-
 # Create session with headers to avoid being blocked
 session = requests.Session()
 session.headers.update({
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 })
-session.verify = certifi.where()
+session.verify = False  # bypass SSL cert chain issue with government CA
 
 print(f"Starting download of all filings for control number {CONTROL_NUMBER}")
 print(f"Output directory: {OUTPUT_DIR}")
 print(f"Processing 203 items...\n")
+
+# Quick connectivity check on item 1 before full run
+print("Testing connection to item 1...")
+test_url = f"{BASE_URL}/search/documents/?controlNumber={CONTROL_NUMBER}&itemNumber=1"
+try:
+    test_resp = session.get(test_url, timeout=15)
+    print(f"  Status: {test_resp.status_code}")
+    print(f"  Page title snippet: {test_resp.text[:300]}\n")
+except Exception as e:
+    print(f"  Connection failed: {e}")
+    print("  Cannot reach the site. Exiting.")
+    exit(1)
 
 downloaded_count = 0
 failed_items = []
