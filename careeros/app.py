@@ -4,6 +4,7 @@ Run: python app.py
 """
 
 import os
+import json
 from datetime import date, datetime
 from flask import (Flask, render_template, request, redirect,
                    url_for, flash, jsonify, Response)
@@ -11,6 +12,13 @@ from sqlalchemy import text
 from models import db, Contact, ConversationEntry, Application, CVBullet, Task
 from context_export import generate_export, days_to_j1, J1_DEADLINE
 from email_parser import parse_email
+
+# Load .env (ANTHROPIC_API_KEY etc.) if present
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env'))
+except ImportError:
+    pass
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 
@@ -722,6 +730,264 @@ def delete_task(task_id):
     db.session.commit()
     flash('Task deleted.', 'info')
     return redirect(request.referrer or url_for('tasks'))
+
+
+# ── Document Sync ─────────────────────────────────────────────────────────────
+
+@app.route('/sync', methods=['GET', 'POST'])
+def sync_doc():
+    api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+
+    if request.method == 'GET':
+        return render_template('sync.html', api_key=api_key, diff=None, parsed_json='', error=None)
+
+    # ── Step 1: parse document ────────────────────────────────────────────────
+    key = request.form.get('api_key', '').strip() or api_key
+    uploaded = request.files.get('docx_file')
+
+    if not key:
+        return render_template('sync.html', api_key='', diff=None, parsed_json='',
+                               error='API key required — get one free at console.anthropic.com')
+
+    if not uploaded or not uploaded.filename.lower().endswith('.docx'):
+        return render_template('sync.html', api_key=key, diff=None, parsed_json='',
+                               error='Please upload a .docx file.')
+
+    import tempfile
+    from doc_sync import extract_docx_text, parse_context_document
+
+    with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp:
+        uploaded.save(tmp.name)
+        tmp_path = tmp.name
+
+    try:
+        text_content = extract_docx_text(tmp_path)
+        parsed = parse_context_document(text_content, key)
+    except Exception as e:
+        return render_template('sync.html', api_key=key, diff=None, parsed_json='',
+                               error=f'Parse error: {e}')
+    finally:
+        os.unlink(tmp_path)
+
+    # Persist API key to .env for next time
+    if key and key != api_key:
+        _save_api_key(key)
+
+    diff = _compute_sync_diff(parsed)
+    return render_template('sync.html', api_key=key, diff=diff,
+                           parsed_json=json.dumps(parsed), error=None)
+
+
+@app.route('/sync/apply', methods=['POST'])
+def sync_apply():
+    parsed = json.loads(request.form.get('parsed_json', '{}'))
+    sel_c = set(request.form.getlist('apply_contacts'))
+    sel_a = set(request.form.getlist('apply_applications'))
+    sel_t = set(request.form.getlist('apply_tasks'))
+
+    added_c = updated_c = added_a = updated_a = added_t = 0
+
+    for i, cd in enumerate(parsed.get('contacts', [])):
+        if str(i) not in sel_c:
+            continue
+        existing = Contact.query.filter(
+            db.func.lower(Contact.name) == cd['name'].strip().lower(),
+            Contact.archived == False
+        ).first()
+        if existing:
+            _update_contact_from_parsed(existing, cd)
+            updated_c += 1
+        else:
+            db.session.add(_create_contact_from_parsed(cd))
+            added_c += 1
+
+    db.session.flush()  # so contacts get IDs before tasks reference them
+
+    contact_lookup = {c.name.lower(): c.id
+                      for c in Contact.query.filter(Contact.archived == False).all()}
+
+    for i, ad in enumerate(parsed.get('applications', [])):
+        if str(i) not in sel_a:
+            continue
+        existing = Application.query.filter(
+            db.func.lower(Application.role) == ad['role'].strip().lower(),
+            Application.archived == False
+        ).first()
+        if existing:
+            _update_application_from_parsed(existing, ad)
+            updated_a += 1
+        else:
+            db.session.add(_create_application_from_parsed(ad))
+            added_a += 1
+
+    for i, td in enumerate(parsed.get('tasks', [])):
+        if str(i) not in sel_t:
+            continue
+        db.session.add(_create_task_from_parsed(td, contact_lookup))
+        added_t += 1
+
+    db.session.commit()
+    parts = []
+    if added_c:   parts.append(f'{added_c} contacts added')
+    if updated_c: parts.append(f'{updated_c} contacts updated')
+    if added_a:   parts.append(f'{added_a} applications added')
+    if updated_a: parts.append(f'{updated_a} applications updated')
+    if added_t:   parts.append(f'{added_t} tasks added')
+    flash('Sync complete: ' + (', '.join(parts) or 'nothing selected.'), 'success')
+    return redirect(url_for('dashboard'))
+
+
+# ── Sync helpers ───────────────────────────────────────────────────────────────
+
+def _compute_sync_diff(parsed):
+    """Compare parsed data against live DB. Returns lists of {data, is_new, changes}."""
+    diff = {'contacts': [], 'applications': [], 'tasks': []}
+
+    for cd in parsed.get('contacts', []):
+        existing = Contact.query.filter(
+            db.func.lower(Contact.name) == cd.get('name', '').strip().lower(),
+            Contact.archived == False
+        ).first()
+        changes = {}
+        if existing:
+            if cd.get('status') and cd['status'] != existing.status:
+                changes['status'] = (existing.status, cd['status'])
+            if cd.get('next_action') and cd['next_action'] != existing.next_action:
+                changes['next_action'] = (existing.next_action, cd['next_action'])
+            if cd.get('last_contact_date'):
+                new_d = _parse_iso_date(cd['last_contact_date'])
+                if new_d and new_d != existing.last_contact_date:
+                    changes['last_contact_date'] = (existing.last_contact_date, new_d)
+        diff['contacts'].append({'data': cd, 'is_new': existing is None, 'changes': changes})
+
+    for ad in parsed.get('applications', []):
+        existing = Application.query.filter(
+            db.func.lower(Application.role) == ad.get('role', '').strip().lower(),
+            Application.archived == False
+        ).first()
+        changes = {}
+        if existing:
+            if ad.get('status') and ad['status'] != existing.status:
+                changes['status'] = (existing.status, ad['status'])
+            if ad.get('notes') and ad['notes'] != existing.notes:
+                changes['notes'] = ('...', ad['notes'])
+        diff['applications'].append({'data': ad, 'is_new': existing is None, 'changes': changes})
+
+    for td in parsed.get('tasks', []):
+        diff['tasks'].append({'data': td, 'is_new': True, 'changes': {}})
+
+    return diff
+
+
+def _create_contact_from_parsed(cd):
+    c = Contact(
+        name=cd['name'],
+        title=cd.get('title') or None,
+        organization=cd.get('organization') or None,
+        status=cd.get('status', 'Pending'),
+        last_contact_date=_parse_iso_date(cd.get('last_contact_date')),
+        next_action=cd.get('next_action') or None,
+        next_action_date=_parse_iso_date(cd.get('next_action_date')),
+        relationship_context=cd.get('relationship_context') or None,
+    )
+    te = cd.get('latest_thread_entry')
+    if te and te.get('content'):
+        c.thread.append(ConversationEntry(
+            date=_parse_iso_date(te.get('date')) or date.today(),
+            entry_type=te.get('type', 'note'),
+            content=te['content'],
+        ))
+    return c
+
+
+def _update_contact_from_parsed(c, cd):
+    if cd.get('status'):
+        c.status = cd['status']
+    if cd.get('next_action') is not None:
+        c.next_action = cd['next_action'] or None
+    if cd.get('next_action_date'):
+        c.next_action_date = _parse_iso_date(cd['next_action_date'])
+    if cd.get('last_contact_date'):
+        new_d = _parse_iso_date(cd['last_contact_date'])
+        if new_d and (not c.last_contact_date or new_d > c.last_contact_date):
+            c.last_contact_date = new_d
+    if cd.get('relationship_context'):
+        c.relationship_context = cd['relationship_context']
+    te = cd.get('latest_thread_entry')
+    if te and te.get('content'):
+        entry_date = _parse_iso_date(te.get('date')) or date.today()
+        already = any(e.content == te['content'] for e in c.thread)
+        if not already:
+            db.session.add(ConversationEntry(
+                contact_id=c.id,
+                date=entry_date,
+                entry_type=te.get('type', 'note'),
+                content=te['content'],
+            ))
+    c.updated_at = datetime.utcnow()
+
+
+def _create_application_from_parsed(ad):
+    return Application(
+        role=ad['role'],
+        organization=ad.get('organization') or None,
+        req_number=ad.get('req_number') or None,
+        status=ad.get('status', 'Drafting'),
+        applied_date=_parse_iso_date(ad.get('applied_date')),
+        deadline=_parse_iso_date(ad.get('deadline')),
+        location=ad.get('location') or None,
+        notes=ad.get('notes') or None,
+        resume_version=ad.get('resume_version') or None,
+        lane=ad.get('lane') or None,
+    )
+
+
+def _update_application_from_parsed(a, ad):
+    if ad.get('status'):
+        a.status = ad['status']
+    if ad.get('notes'):
+        a.notes = ad['notes']
+    if ad.get('applied_date'):
+        a.applied_date = _parse_iso_date(ad['applied_date'])
+    if ad.get('deadline'):
+        a.deadline = _parse_iso_date(ad['deadline'])
+    a.updated_at = datetime.utcnow()
+
+
+def _create_task_from_parsed(td, contact_lookup):
+    linked_id = None
+    if td.get('linked_contact_name'):
+        linked_id = contact_lookup.get(td['linked_contact_name'].strip().lower())
+    return Task(
+        title=td['title'],
+        category=td.get('category', 'Career'),
+        priority=td.get('priority', 'Medium'),
+        due_date=_parse_iso_date(td.get('due_date')),
+        time_estimate=td.get('time_estimate') or None,
+        notes=td.get('notes') or None,
+        linked_contact_id=linked_id,
+    )
+
+
+def _parse_iso_date(val):
+    if not val:
+        return None
+    try:
+        return datetime.strptime(val, '%Y-%m-%d').date()
+    except Exception:
+        return None
+
+
+def _save_api_key(key):
+    env_path = os.path.join(BASE_DIR, '.env')
+    lines = []
+    if os.path.exists(env_path):
+        with open(env_path) as f:
+            lines = [l for l in f.readlines() if not l.startswith('ANTHROPIC_API_KEY=')]
+    lines.append(f'ANTHROPIC_API_KEY={key}\n')
+    with open(env_path, 'w') as f:
+        f.writelines(lines)
+    os.environ['ANTHROPIC_API_KEY'] = key
 
 
 # ── DB Init + Seed ────────────────────────────────────────────────────────────

@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}Sync Document — CareerOS{% endblock %}
+{% block breadcrumb %}<span class="text-muted">Sync Document</span>{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Sync from Document</h1>
+  <p class="text-muted mb-0">Upload a .docx context update — Claude parses it and previews changes before applying.</p>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+{% if not diff %}
+{# ── Step 1: Upload form ── #}
+<div class="row">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header"><strong>Upload Context Document</strong></div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Word Document (.docx)</label>
+            <input type="file" name="docx_file" class="form-control" accept=".docx" required>
+            <div class="form-text">Free-form text is fine — Claude reads it like a human would.</div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Claude API Key</label>
+            <input type="password" name="api_key" class="form-control"
+                   value="{{ api_key }}"
+                   placeholder="sk-ant-api03-…">
+            {% if api_key %}
+            <div class="form-text text-success"><i class="bi bi-check-circle"></i> Key saved — leave blank to reuse.</div>
+            {% else %}
+            <div class="form-text">
+              Get a free key at
+              <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a>.
+              It will be saved to a local .env file for next time.
+            </div>
+            {% endif %}
+          </div>
+
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-cloud-upload"></i> Parse Document
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header"><strong>How it works</strong></div>
+      <div class="card-body small text-muted">
+        <ol class="mb-0 ps-3">
+          <li>Write your context update in Word — any format, free text.</li>
+          <li>Upload here. Claude reads it and extracts contacts, applications, and tasks.</li>
+          <li>You see a preview: new items highlighted green, changes highlighted yellow.</li>
+          <li>Uncheck anything you don't want, then click Apply.</li>
+        </ol>
+        <p class="mt-2 mb-0">Cost: ~$0.001 per document (Haiku model).</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% else %}
+{# ── Step 2: Diff preview ── #}
+
+{% set total = diff.contacts|length + diff.applications|length + diff.tasks|length %}
+{% set new_count = diff.contacts|selectattr('is_new')|list|length
+                 + diff.applications|selectattr('is_new')|list|length
+                 + diff.tasks|selectattr('is_new')|list|length %}
+{% set update_count = total - new_count %}
+
+<div class="alert alert-info d-flex align-items-center gap-3">
+  <i class="bi bi-robot fs-4"></i>
+  <div>
+    Parsed <strong>{{ total }}</strong> items —
+    <span class="text-success fw-bold">{{ new_count }} new</span>,
+    <span class="text-warning fw-bold">{{ update_count }} updates</span>.
+    Uncheck anything you don't want, then apply.
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('sync_apply') }}">
+  <input type="hidden" name="parsed_json" value="{{ parsed_json | e }}">
+
+  {# ── Contacts ── #}
+  {% if diff.contacts %}
+  <div class="card mb-4">
+    <div class="card-header d-flex align-items-center gap-2">
+      <i class="bi bi-people-fill"></i>
+      <strong>Contacts</strong>
+      <span class="badge bg-secondary ms-auto">{{ diff.contacts|length }}</span>
+    </div>
+    <div class="list-group list-group-flush">
+      {% for item in diff.contacts %}
+      {% set cd = item.data %}
+      <label class="list-group-item list-group-item-action d-flex gap-3 py-3
+                    {% if item.is_new %}list-group-item-success{% elif item.changes %}list-group-item-warning{% endif %}">
+        <input type="checkbox" name="apply_contacts" value="{{ loop.index0 }}"
+               class="form-check-input mt-1 flex-shrink-0" checked>
+        <div class="flex-grow-1">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <strong>{{ cd.name }}</strong>
+            {% if cd.title %}<span class="text-muted small">{{ cd.title }}</span>{% endif %}
+            {% if cd.organization %}<span class="badge bg-light text-dark border">{{ cd.organization }}</span>{% endif %}
+            {% if item.is_new %}
+              <span class="badge bg-success">NEW</span>
+            {% elif item.changes %}
+              <span class="badge bg-warning text-dark">UPDATE</span>
+            {% endif %}
+          </div>
+          <div class="small mt-1 text-muted">
+            Status: <strong>{{ cd.status }}</strong>
+            {% if cd.next_action %} &mdash; {{ cd.next_action }}{% endif %}
+            {% if cd.next_action_date %} ({{ cd.next_action_date }}){% endif %}
+          </div>
+          {% if item.changes %}
+          <div class="small mt-1">
+            {% for field, (old, new) in item.changes.items() %}
+            <span class="text-warning"><i class="bi bi-arrow-right-short"></i>
+              <em>{{ field }}</em>: {{ old or '—' }} → <strong>{{ new }}</strong>
+            </span>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% if cd.latest_thread_entry %}
+          <div class="small mt-1 text-muted fst-italic">
+            <i class="bi bi-chat-left-text"></i>
+            {{ cd.latest_thread_entry.date }}: {{ cd.latest_thread_entry.content[:120] }}{% if cd.latest_thread_entry.content|length > 120 %}…{% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Applications ── #}
+  {% if diff.applications %}
+  <div class="card mb-4">
+    <div class="card-header d-flex align-items-center gap-2">
+      <i class="bi bi-briefcase-fill"></i>
+      <strong>Applications</strong>
+      <span class="badge bg-secondary ms-auto">{{ diff.applications|length }}</span>
+    </div>
+    <div class="list-group list-group-flush">
+      {% for item in diff.applications %}
+      {% set ad = item.data %}
+      <label class="list-group-item list-group-item-action d-flex gap-3 py-3
+                    {% if item.is_new %}list-group-item-success{% elif item.changes %}list-group-item-warning{% endif %}">
+        <input type="checkbox" name="apply_applications" value="{{ loop.index0 }}"
+               class="form-check-input mt-1 flex-shrink-0" checked>
+        <div class="flex-grow-1">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <strong>{{ ad.role }}</strong>
+            {% if ad.organization %}<span class="badge bg-light text-dark border">{{ ad.organization }}</span>{% endif %}
+            {% if item.is_new %}
+              <span class="badge bg-success">NEW</span>
+            {% elif item.changes %}
+              <span class="badge bg-warning text-dark">UPDATE</span>
+            {% endif %}
+          </div>
+          <div class="small mt-1 text-muted">
+            Status: <strong>{{ ad.status }}</strong>
+            {% if ad.location %} &mdash; {{ ad.location }}{% endif %}
+            {% if ad.applied_date %} &mdash; Applied {{ ad.applied_date }}{% endif %}
+          </div>
+          {% if item.changes %}
+          <div class="small mt-1">
+            {% for field, (old, new) in item.changes.items() %}
+            <span class="text-warning"><i class="bi bi-arrow-right-short"></i>
+              <em>{{ field }}</em>: {{ old or '—' }} → <strong>{{ new }}</strong>
+            </span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Tasks ── #}
+  {% if diff.tasks %}
+  <div class="card mb-4">
+    <div class="card-header d-flex align-items-center gap-2">
+      <i class="bi bi-check2-square"></i>
+      <strong>Tasks</strong>
+      <span class="badge bg-secondary ms-auto">{{ diff.tasks|length }}</span>
+    </div>
+    <div class="list-group list-group-flush">
+      {% for item in diff.tasks %}
+      {% set td = item.data %}
+      <label class="list-group-item list-group-item-action d-flex gap-3 py-3 list-group-item-success">
+        <input type="checkbox" name="apply_tasks" value="{{ loop.index0 }}"
+               class="form-check-input mt-1 flex-shrink-0" checked>
+        <div class="flex-grow-1">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <strong>{{ td.title }}</strong>
+            <span class="badge bg-{{ 'danger' if td.priority == 'High' else 'warning text-dark' if td.priority == 'Medium' else 'secondary' }}">{{ td.priority }}</span>
+            <span class="badge bg-light text-dark border">{{ td.category }}</span>
+            <span class="badge bg-success">NEW</span>
+          </div>
+          <div class="small mt-1 text-muted">
+            {% if td.due_date %}Due {{ td.due_date }}{% endif %}
+            {% if td.time_estimate %} &mdash; {{ td.time_estimate }}{% endif %}
+            {% if td.linked_contact_name %} &mdash; <i class="bi bi-person"></i> {{ td.linked_contact_name }}{% endif %}
+          </div>
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="d-flex gap-3 mb-5">
+    <button type="submit" class="btn btn-primary btn-lg">
+      <i class="bi bi-check2-all"></i> Apply Selected
+    </button>
+    <a href="{{ url_for('sync_doc') }}" class="btn btn-outline-secondary btn-lg">
+      Upload Different File
+    </a>
+  </div>
+
+</form>
+{% endif %}
+{% endblock %}

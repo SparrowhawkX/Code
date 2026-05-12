@@ -72,6 +72,12 @@
           <i class="bi bi-upload"></i> Import CSV
         </a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link {% if 'sync' in (request.endpoint or '') %}active{% endif %}"
+           href="{{ url_for('sync_doc') }}">
+          <i class="bi bi-file-earmark-arrow-up"></i> Sync Document
+        </a>
+      </li>
       <li class="nav-item mt-auto">
         <a class="nav-link {% if request.endpoint == 'export' %}active{% endif %}"
            href="{{ url_for('export') }}">
