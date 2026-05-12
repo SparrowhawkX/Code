@@ -21,6 +21,7 @@ class Contact(db.Model):
     next_action = db.Column(db.Text)
     next_action_date = db.Column(db.Date)
     notes = db.Column(db.Text)
+    archived = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -82,8 +83,8 @@ class Application(db.Model):
     notes = db.Column(db.Text)
     resume_version = db.Column(db.String(100))
     lane = db.Column(db.String(100))
-    # Lane A / Lane B / Lane C etc. from CSV
     job_description = db.Column(db.Text)
+    archived = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -122,6 +123,7 @@ class Task(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    archived = db.Column(db.Boolean, default=False, nullable=False, server_default='0')
     linked_contact = db.relationship('Contact', foreign_keys=[linked_contact_id])
     linked_application = db.relationship('Application', foreign_keys=[linked_application_id])
 

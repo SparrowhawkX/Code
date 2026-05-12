@@ -7,6 +7,7 @@ import os
 from datetime import date, datetime
 from flask import (Flask, render_template, request, redirect,
                    url_for, flash, jsonify, Response)
+from sqlalchemy import text
 from models import db, Contact, ConversationEntry, Application, CVBullet, Task
 from context_export import generate_export, days_to_j1, J1_DEADLINE
 from email_parser import parse_email
@@ -30,7 +31,8 @@ def inject_globals():
     countdown = days_to_j1()
     today_actions = Contact.query.filter(
         Contact.next_action_date == date.today(),
-        Contact.status.notin_(["Cold", "Hold"])
+        Contact.status.notin_(["Cold", "Hold"]),
+        Contact.archived == False
     ).count()
     return dict(j1_countdown=countdown, today_actions=today_actions, today=date.today())
 
@@ -80,14 +82,16 @@ def dashboard():
     # Actions due today
     due_today = Contact.query.filter(
         Contact.next_action_date == today,
-        Contact.status.notin_(["Cold"])
+        Contact.status.notin_(["Cold"]),
+        Contact.archived == False
     ).all()
 
     # Overdue
     overdue = Contact.query.filter(
         Contact.next_action_date < today,
         Contact.next_action_date.isnot(None),
-        Contact.status.notin_(["Cold", "Hold"])
+        Contact.status.notin_(["Cold", "Hold"]),
+        Contact.archived == False
     ).order_by(Contact.next_action_date).all()
 
     # Due this week
@@ -96,18 +100,21 @@ def dashboard():
     due_week = Contact.query.filter(
         Contact.next_action_date > today,
         Contact.next_action_date <= week_end,
-        Contact.status.notin_(["Cold"])
+        Contact.status.notin_(["Cold"]),
+        Contact.archived == False
     ).order_by(Contact.next_action_date).all()
 
     # Active contacts
     active_contacts = Contact.query.filter(
-        Contact.status.in_(["Active", "Warm"])
+        Contact.status.in_(["Active", "Warm"]),
+        Contact.archived == False
     ).count()
 
     # Application stats
-    total_apps = Application.query.count()
+    total_apps = Application.query.filter(Application.archived == False).count()
     applied_apps = Application.query.filter(
-        Application.status.in_(["Applied", "Under Review", "Interview", "Offer"])
+        Application.status.in_(["Applied", "Under Review", "Interview", "Offer"]),
+        Application.archived == False
     ).count()
 
     # Upcoming deadlines (14 days)
@@ -117,19 +124,22 @@ def dashboard():
         Application.deadline.isnot(None),
         Application.deadline <= deadline_window,
         Application.deadline >= today,
-        Application.status.notin_(["Applied", "Rejected", "Withdrawn"])
+        Application.status.notin_(["Applied", "Rejected", "Withdrawn"]),
+        Application.archived == False
     ).order_by(Application.deadline).all()
 
     # Tasks due today (not done)
     tasks_today = Task.query.filter(
         Task.due_date == today,
-        Task.status == 'Todo'
+        Task.status == 'Todo',
+        Task.archived == False
     ).order_by(Task.priority.asc(), Task.id.asc()).all()
 
     # Overdue tasks
     tasks_overdue = Task.query.filter(
         Task.due_date < today,
-        Task.status == 'Todo'
+        Task.status == 'Todo',
+        Task.archived == False
     ).order_by(Task.due_date.asc()).all()
 
     # Priority suggestions
@@ -174,7 +184,7 @@ def contacts():
     search = request.args.get('q', '').strip()
     sort = request.args.get('sort', 'action')
 
-    q = Contact.query
+    q = Contact.query.filter(Contact.archived == False)
 
     if status_filter:
         q = q.filter(Contact.status == status_filter)
@@ -319,7 +329,7 @@ def applications():
     lane_filter = request.args.get('lane', '')
     search = request.args.get('q', '').strip()
 
-    q = Application.query
+    q = Application.query.filter(Application.archived == False)
 
     if status_filter:
         q = q.filter(Application.status == status_filter)
@@ -340,7 +350,7 @@ def applications():
 
     all_statuses = ['Drafting', 'Applied', 'Under Review', 'Interview', 'Offer',
                     'Decided-After-Call', 'Rejected', 'Withdrawn']
-    all_lanes = sorted(set(a.lane for a in Application.query.all() if a.lane))
+    all_lanes = sorted(set(a.lane for a in Application.query.filter(Application.archived == False).all() if a.lane))
 
     return render_template('applications.html',
                            apps=apps,
@@ -629,7 +639,7 @@ def tasks():
     status_filter = request.args.get('status', 'Todo')
     category_filter = request.args.get('category', '')
 
-    q = Task.query
+    q = Task.query.filter(Task.archived == False)
     if status_filter:
         q = q.filter(Task.status == status_filter)
     if category_filter:
@@ -718,6 +728,7 @@ def delete_task(task_id):
 
 def init_db():
     db.create_all()
+    _migrate_db()
     _seed_if_empty()
     # Auto-import CSVs from app directory
     from csv_importer import run_all_imports
@@ -727,10 +738,41 @@ def init_db():
             print(f"  [CSV] {fname}: {count} records imported")
 
 
+def _migrate_db():
+    """Add columns missing from older schema versions without breaking existing data."""
+    with db.engine.connect() as conn:
+        for table, col, defn in [
+            ('contacts',     'archived', 'BOOLEAN NOT NULL DEFAULT 0'),
+            ('applications', 'archived', 'BOOLEAN NOT NULL DEFAULT 0'),
+            ('tasks',        'archived', 'BOOLEAN NOT NULL DEFAULT 0'),
+        ]:
+            try:
+                conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {col} {defn}'))
+                conn.commit()
+                print(f'  [migrate] Added {col} to {table}')
+            except Exception:
+                pass  # column already exists
+
+
+@app.route('/admin/archive-all', methods=['POST'])
+def archive_all():
+    """Archive every existing contact, application, and task so fresh data can be seeded."""
+    c_count = Contact.query.filter(Contact.archived == False).count()
+    a_count = Application.query.filter(Application.archived == False).count()
+    t_count = Task.query.filter(Task.archived == False).count()
+    Contact.query.filter(Contact.archived == False).update({'archived': True})
+    Application.query.filter(Application.archived == False).update({'archived': True})
+    Task.query.filter(Task.archived == False).update({'archived': True})
+    db.session.commit()
+    flash(f'Archived {c_count} contacts, {a_count} applications, {t_count} tasks. '
+          'Restart the app to load fresh data.', 'success')
+    return redirect(url_for('dashboard'))
+
+
 def _seed_if_empty():
     from seed_data import SEED_CONTACTS, SEED_APPLICATIONS, CV_BULLETS, SEED_TASKS
 
-    if Contact.query.count() == 0:
+    if Contact.query.filter(Contact.archived == False).count() == 0:
         print("  [seed] Populating initial contacts and CV bullets…")
 
         for cd in SEED_CONTACTS:
@@ -768,7 +810,7 @@ def _seed_if_empty():
         db.session.commit()
         print(f"  [seed] Done: {len(SEED_CONTACTS)} contacts, {len(CV_BULLETS)} CV bullets")
 
-    if Application.query.count() == 0:
+    if Application.query.filter(Application.archived == False).count() == 0:
         for ad in SEED_APPLICATIONS:
             a = Application(
                 role=ad['role'],
@@ -785,7 +827,7 @@ def _seed_if_empty():
         db.session.commit()
         print(f"  [seed] {len(SEED_APPLICATIONS)} applications seeded")
 
-    if Task.query.count() == 0:
+    if Task.query.filter(Task.archived == False).count() == 0:
         # Build a name→id lookup for contacts already in DB
         contact_lookup = {c.name: c.id for c in Contact.query.all()}
         for td in SEED_TASKS:

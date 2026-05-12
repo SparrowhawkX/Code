@@ -304,12 +304,21 @@
         <a href="{{ url_for('new_application') }}" class="btn btn-outline-secondary">
           <i class="bi bi-plus-circle"></i> Add Application
         </a>
+        <a href="{{ url_for('new_task') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-plus-square"></i> Add Task
+        </a>
         <a href="{{ url_for('email_ingest') }}" class="btn btn-outline-secondary">
           <i class="bi bi-envelope-plus"></i> Log Email
         </a>
         <a href="{{ url_for('export_download') }}" class="btn btn-outline-success">
           <i class="bi bi-download"></i> Download Context Export
         </a>
+        <form method="post" action="{{ url_for('archive_all') }}"
+              onsubmit="return confirm('This will archive ALL current contacts, applications, and tasks. Fresh data will be loaded on next restart. Continue?')">
+          <button class="btn btn-outline-danger w-100">
+            <i class="bi bi-archive"></i> Archive All &amp; Reset
+          </button>
+        </form>
       </div>
     </div>
 
